@@ -15,46 +15,72 @@
 |---|---|
 | 🎨 **Dark Aurora UI** | Glassmorphism design with animated aurora blobs, film grain, starfield |
 | 🔐 **Multi-wallet** | Freighter, xBull, Albedo, Hana, Lobstr, Rabet via StellarWalletsKit |
-| 📡 **Smart Contract** | Soroban (Rust) crowdfunding contract deployed on testnet |
+| 📡 **Smart Contract** | Soroban (Rust) crowdfunding contract — `contract/src/lib.rs` |
 | ⏱️ **Real-time** | Campaign state + donation feed polls every 5 seconds |
 | 💳 **Tx Tracking** | Live Pending 🟡 / Success ✅ / Failed ❌ with Stellar Explorer link |
 | 🚫 **Error Handling** | 3 error types: Wallet Not Found, Tx Rejected, Insufficient Balance |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Clone & Run Locally
 
-### Prerequisites
-- [Node.js](https://nodejs.org) v18+
-- A Stellar wallet extension ([Freighter](https://freighter.app) recommended)
+### 1. Prerequisites
+- [Node.js](https://nodejs.org) v18 or higher
+- [Git](https://git-scm.com)
+- A Stellar wallet browser extension — [Freighter](https://freighter.app) (recommended)
 
-### Run locally
+### 2. Clone the repository
 
 ```bash
-# Clone / navigate to the project
+git clone https://github.com/<your-username>/SAM-Project.git
 cd SAM-Project
+```
 
-# Install dependencies
+### 3. Install dependencies
+
+```bash
 npm install
+```
 
-# Start dev server
+### 4. Start the dev server
+
+```bash
 npm run dev
 ```
 
 Open **[http://localhost:5173](http://localhost:5173)** in your browser.
 
-### Get testnet XLM
-After connecting your wallet, click the **"🚿 Fund Account"** button — it opens Stellar's Friendbot to give you free testnet XLM.
+### 5. Set up your wallet
+
+1. Install the **[Freighter](https://freighter.app)** Chrome extension
+2. Create or import a wallet
+3. Switch network to **Testnet**: click the network name in Freighter → select "Test SDF Network"
+4. Back in the app, click **"⚡ Connect Freighter"**
+5. Click **"🚿 Fund Account"** to receive free testnet XLM via Friendbot
+6. Enter an amount and click **"◈ Donate XLM"** — approve in Freighter
 
 ---
 
-## 🌐 How to Use
+## 🌐 Share via Cloudflare Tunnel
 
-1. **Connect** — Click "⚡ Connect Freighter" and approve in the wallet popup
-2. **Fund** — Click "🚿 Fund Account" if your balance is 0
-3. **Donate** — Enter an XLM amount (or use quick-select: 10 / 50 / 100 / 500)
-4. **Sign** — Approve the transaction in your wallet
-5. **Track** — Watch the status badge + your donation appear in the Live Feed
+To give someone else a live link to your local server:
+
+```bash
+# Install cloudflared (if not already)
+# Download from: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+
+cloudflared tunnel --url http://localhost:5173
+```
+
+Your public URL will appear:
+```
++-----------------------------------------------------------------------+
+|  Your quick Tunnel has been created! Visit it at:                     |
+|  https://xxxx-xxxx-xxxx.trycloudflare.com                            |
++-----------------------------------------------------------------------+
+```
+
+Keep both terminals running — `npm run dev` + `cloudflared tunnel`.
 
 ---
 
@@ -69,7 +95,7 @@ SAM-Project/
 ├── src/
 │   ├── lib/
 │   │   ├── stellar.ts           # Stellar SDK: RPC, contract calls, errors
-│   │   └── walletKit.ts         # StellarWalletsKit wrapper
+│   │   └── walletKit.ts         # StellarWalletsKit multi-wallet wrapper
 │   │
 │   ├── components/
 │   │   ├── AuroraBackground.tsx # Animated aurora blobs + starfield
@@ -78,7 +104,7 @@ SAM-Project/
 │   │   ├── CampaignCard.tsx     # Progress bar + campaign stats
 │   │   ├── DonateForm.tsx       # XLM input + quick amounts + tx status
 │   │   ├── ErrorToast.tsx       # Auto-dismiss error toasts (3 types)
-│   │   ├── DonationFeed.tsx     # Real-time LIVE donations list
+│   │   ├── DonationFeed.tsx     # Real-time donations list
 │   │   └── WalletCard.tsx       # Balance + tx history + disconnect
 │   │
 │   ├── App.tsx                  # Root: state, wallet, contract, polling
@@ -86,7 +112,6 @@ SAM-Project/
 │
 ├── index.html
 ├── vite.config.ts               # Node polyfills for Stellar SDK
-├── tsconfig.app.json
 └── package.json
 ```
 
@@ -106,11 +131,9 @@ The Soroban crowdfunding contract (`contract/src/lib.rs`) exposes:
 | `is_deadline_passed()` | Check campaign status |
 | `get_donors()` | List of donor addresses |
 
-Events emitted: `("donation", donor_address, amount)` — consumed by the frontend feed.
-
 ### Deploy the contract
 
-> ⚠️ Requires [Rust](https://rustup.rs) and [Stellar CLI](https://github.com/stellar/stellar-cli)
+> Requires [Rust](https://rustup.rs) and [Stellar CLI](https://github.com/stellar/stellar-cli)
 
 ```bash
 # 1. Install Stellar CLI
@@ -130,20 +153,7 @@ stellar contract deploy \
   --source alice \
   --network testnet
 
-# 5. Initialize the campaign (5000 XLM target, ~100000 ledgers deadline)
-stellar contract invoke \
-  --id <CONTRACT_ID> \
-  --source alice \
-  --network testnet \
-  -- initialize \
-  --owner <YOUR_ADDRESS> \
-  --target_amount 50000000000 \
-  --deadline_ledger 100000
-```
-
-After deployment, paste the **Contract ID** into `src/lib/stellar.ts`:
-```ts
-export const CONTRACT_ID = "<YOUR_CONTRACT_ID>";
+# 5. Copy the returned Contract ID into src/lib/stellar.ts → CONTRACT_ID
 ```
 
 ---
@@ -167,7 +177,7 @@ export const CONTRACT_ID = "<YOUR_CONTRACT_ID>";
 - [x] **Contract on testnet** — Soroban crowdfunding contract (`contract/src/lib.rs`)
 - [x] **Contract called from frontend** — `donate()`, `get_balance()`, `get_target()`
 - [x] **Transaction status visible** — Pending / Success / Failed + Explorer link
-- [x] **2+ meaningful commits** — Smart contract + Frontend integration
+- [x] **2+ meaningful commits** — Smart contract + Frontend integration + README
 
 ---
 
