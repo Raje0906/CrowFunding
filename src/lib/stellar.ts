@@ -83,7 +83,27 @@ export interface CampaignState {
 
 // ── Read Contract State ───────────────────────────────────────────────────────
 export async function readContractState(): Promise<CampaignState> {
+    // Campaign treasury — receives donations when contract is not yet deployed
+    const CAMPAIGN_TREASURY = "GCWHSFPEKYG5OYYQT2M5VRRVM3LSCXACMBNKSZUTH7XCIUGQTGFDAYWD";
+    const TARGET = 5000;
+
+    // Helper: get real XLM balance of treasury from Horizon
+    async function getTreasuryBalance(): Promise<number> {
+        try {
+            const res = await fetch(`${HORIZON_URL}/accounts/${CAMPAIGN_TREASURY}`);
+            if (!res.ok) return 0;
+            const data = await res.json();
+            const native = data.balances?.find(
+                (b: { asset_type: string }) => b.asset_type === "native"
+            );
+            return native ? parseFloat(native.balance) : 0;
+        } catch {
+            return 0;
+        }
+    }
+
     try {
+        // ── Try Soroban contract first ──────────────────────────────────────────
         const contract = new Contract(CONTRACT_ID);
         const dummyAccount = await server
             .getAccount("GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN")
@@ -95,8 +115,8 @@ export async function readContractState(): Promise<CampaignState> {
             }));
 
         const ops = [contract.call("get_balance"), contract.call("get_target")];
-        let raised = 0;
-        let target = 5000;
+        let raised = -1; // -1 means "not fetched from contract"
+        let target = TARGET;
 
         for (const op of ops) {
             try {
@@ -109,7 +129,6 @@ export async function readContractState(): Promise<CampaignState> {
                     .build();
 
                 const simResult = await server.simulateTransaction(tx);
-                // Use 'transactionData' as success marker (present only on success objects)
                 if ("transactionData" in simResult && simResult.result) {
                     const successSim = simResult as rpc.Api.SimulateTransactionSuccessResponse;
                     if (successSim.result) {
@@ -119,25 +138,30 @@ export async function readContractState(): Promise<CampaignState> {
                     }
                 }
             } catch {
-                // silently use defaults if contract not deployed yet
+                // contract not deployed — fall through below
             }
         }
 
+        // If contract returned real data use it; otherwise fall back to treasury balance
+        const realRaised = raised >= 0 ? raised : await getTreasuryBalance();
+
         return {
-            raised,
+            raised: realRaised,
             target,
             deadline: "March 31, 2026",
             donors: [],
-            isGoalReached: raised >= target,
+            isGoalReached: realRaised >= target,
             isDeadlinePassed: false,
         };
     } catch {
+        // Network error — still show real treasury balance
+        const realRaised = await getTreasuryBalance();
         return {
-            raised: 1247.5,
-            target: 5000,
+            raised: realRaised,
+            target: TARGET,
             deadline: "March 31, 2026",
             donors: [],
-            isGoalReached: false,
+            isGoalReached: realRaised >= TARGET,
             isDeadlinePassed: false,
         };
     }
