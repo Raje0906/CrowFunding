@@ -14,6 +14,7 @@ import {
   readContractState,
   buildDonateTx,
   submitTransaction,
+  submitClassicTx,
   fetchRecentDonations,
   getXLMBalance,
   WalletNotFoundError,
@@ -82,7 +83,16 @@ export default function App() {
   // ── Error classifier ────────────────────────────────────────────────────────
   const handleError = useCallback(
     (err: unknown) => {
-      const msg = err instanceof Error ? err.message : String(err);
+      // Wallets (Freighter, xBull) throw plain objects like { code: 4001, message: "..." }
+      // not Error instances — extract the message properly
+      let msg: string;
+      if (err instanceof Error) {
+        msg = err.message;
+      } else if (err && typeof err === "object" && "message" in err) {
+        msg = String((err as { message: unknown }).message);
+      } else {
+        msg = String(err);
+      }
 
       // Error type 1: Wallet not found
       if (
@@ -192,14 +202,15 @@ export default function App() {
     ]);
 
     try {
-      // 1. Build transaction XDR (try Soroban contract first, fall back to payment)
+      // 1. Build transaction XDR — try Soroban contract first, fall back to classic payment
       let txXDR: string;
+      let isClassic = false;
       try {
         txXDR = await buildDonateTx(address, amount);
       } catch {
-        // Fallback: direct XLM payment to a campaign treasury address
-        const CAMPAIGN_TREASURY =
-          "GCXHPE6JV3YRJM2WRUVRJUYXWTPNJHGPWL5LVTFQB2N4UOQHZPZLXH";
+        // Fallback: send to campaign treasury (user's 2nd wallet)
+        isClassic = true;
+        const CAMPAIGN_TREASURY = "GCWHSFPEKYG5OYYQT2M5VRRVM3LSCXACMBNKSZUTH7XCIUGQTGFDAYWD";
         const account = await server.getAccount(address);
         const tx = new TransactionBuilder(account, {
           fee: BASE_FEE,
@@ -234,8 +245,10 @@ export default function App() {
         return;
       }
 
-      // 3. Submit to network
-      const hash = await submitTransaction(signedXDR);
+      // 3. Submit — Soroban txs go to RPC, classic txs go to Horizon
+      const hash = isClassic
+        ? await submitClassicTx(signedXDR)
+        : await submitTransaction(signedXDR);
 
       setTxRecord({ status: "success", hash });
       setTxHistory((prev) =>
@@ -295,7 +308,8 @@ export default function App() {
   const refreshEvents = useCallback(async () => {
     try {
       const evs = await fetchRecentDonations();
-      setEvents(evs);
+      // Only update from remote if we got real data; preserve locally-tracked events
+      if (evs.length > 0) setEvents(evs);
     } finally {
       setEventsLoading(false);
     }

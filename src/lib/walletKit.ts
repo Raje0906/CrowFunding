@@ -9,7 +9,15 @@ import { HanaModule } from "@creit.tech/stellar-wallets-kit/modules/hana";
 import { LobstrModule } from "@creit.tech/stellar-wallets-kit/modules/lobstr";
 import { RabetModule } from "@creit.tech/stellar-wallets-kit/modules/rabet";
 
-// Initialize StellarWalletsKit once at module load
+// Helper: extract readable message from any error type
+// Freighter and other wallets throw plain { code, message } objects
+function errMsg(err: unknown): string {
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === "object" && "message" in err)
+        return String((err as { message: unknown }).message);
+    return String(err);
+}
+
 StellarWalletsKit.init({
     network: Networks.TESTNET,
     modules: [
@@ -32,13 +40,13 @@ export async function connectWallet(): Promise<string> {
         const { address } = await StellarWalletsKit.authModal();
         return address;
     } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = errMsg(err).toLowerCase();
         if (
             msg.includes("not found") ||
             msg.includes("not installed") ||
-            msg.includes("Extension not found") ||
+            msg.includes("extension not found") ||
             msg.includes("is not defined") ||
-            msg.includes("Cannot read properties of undefined")
+            msg.includes("cannot read properties of undefined")
         ) {
             throw new Error("WalletNotFound:Wallet");
         }
@@ -50,7 +58,7 @@ export async function connectWallet(): Promise<string> {
             msg.includes("closed") ||
             msg.includes("dismiss") ||
             // modal closed by user
-            msg.includes("User closed")
+            msg.includes("user closed")
         ) {
             throw new Error("TransactionRejected:");
         }
@@ -72,13 +80,13 @@ export async function signTransaction(
         });
         return signedTxXdr;
     } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
+        const msg = errMsg(err).toLowerCase();
         if (
             msg.includes("reject") ||
             msg.includes("cancel") ||
             msg.includes("denied") ||
             msg.includes("declined") ||
-            msg.includes("User declined") ||
+            msg.includes("user declined") ||
             msg.includes("closed")
         ) {
             throw new Error("TransactionRejected:");

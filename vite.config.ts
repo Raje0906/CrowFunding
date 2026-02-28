@@ -4,6 +4,9 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    allowedHosts: true,  // Allow Cloudflare tunnel + any external host
+  },
   plugins: [
     react(),
     nodePolyfills({

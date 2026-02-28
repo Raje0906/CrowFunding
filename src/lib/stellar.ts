@@ -170,6 +170,25 @@ export async function buildDonateTx(
     return prepared.toXDR();
 }
 
+// ── Submit Classic (non-Soroban) Transaction via Horizon ──────────────────────
+export async function submitClassicTx(signedXDR: string): Promise<string> {
+    const params = new URLSearchParams({ tx: signedXDR });
+    const response = await fetch(`${HORIZON_URL}/transactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        const ops = data?.extras?.result_codes?.operations ?? [];
+        const errCode = ops[0] ?? data?.extras?.result_codes?.transaction ?? data?.title ?? "Unknown error";
+        if (String(errCode).includes("underfunded") || String(errCode).includes("insufficient"))
+            throw new InsufficientBalanceError(0, 0);
+        throw new Error(String(errCode));
+    }
+    return data.hash as string;
+}
+
 // ── Submit Signed Transaction ─────────────────────────────────────────────────
 export async function submitTransaction(signedXDR: string): Promise<string> {
     const tx = TransactionBuilder.fromXDR(signedXDR, NETWORK_PASSPHRASE);
@@ -211,55 +230,9 @@ export interface DonationEvent {
 
 // ── Fetch Donation Events ─────────────────────────────────────────────────────
 export async function fetchRecentDonations(): Promise<DonationEvent[]> {
-    try {
-        const response = await fetch(
-            `${HORIZON_URL}/accounts/${CONTRACT_ID}/payments?limit=10&order=desc`
-        );
-        if (!response.ok) return getDemoEvents();
-        return getDemoEvents();
-    } catch {
-        return getDemoEvents();
-    }
-}
-
-function getDemoEvents(): DonationEvent[] {
-    return [
-        {
-            id: "1",
-            donor: "GCKFBEIY...X7AB",
-            amount: 250,
-            timestamp: Date.now() - 3600000,
-            txHash: "a1b2c3d4e5f6789012345678",
-        },
-        {
-            id: "2",
-            donor: "GBXU7PL...M3QR",
-            amount: 100,
-            timestamp: Date.now() - 7200000,
-            txHash: "b2c3d4e5f6789012345678a1",
-        },
-        {
-            id: "3",
-            donor: "GDKJ3FN...T8ZP",
-            amount: 500,
-            timestamp: Date.now() - 14400000,
-            txHash: "c3d4e5f6789012345678a1b2",
-        },
-        {
-            id: "4",
-            donor: "GAOP2LM...K9WV",
-            amount: 75,
-            timestamp: Date.now() - 21600000,
-            txHash: "d4e5f6789012345678a1b2c3",
-        },
-        {
-            id: "5",
-            donor: "GCXT4BK...N2ER",
-            amount: 322.5,
-            timestamp: Date.now() - 28800000,
-            txHash: "e5f6789012345678a1b2c3d4",
-        },
-    ];
+    // Real events are tracked in-memory by App.tsx when donations succeed.
+    // Future: query Soroban RPC getEvents() once contract is deployed.
+    return [];
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
