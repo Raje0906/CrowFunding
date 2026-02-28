@@ -85,7 +85,7 @@ export interface CampaignState {
 export async function readContractState(): Promise<CampaignState> {
     // Campaign treasury — receives donations when contract is not yet deployed
     const CAMPAIGN_TREASURY = "GCWHSFPEKYG5OYYQT2M5VRRVM3LSCXACMBNKSZUTH7XCIUGQTGFDAYWD";
-    const TARGET = 5000;
+    const TARGET = 1_000_000; // 10 lakhs XLM
 
     // Helper: get real XLM balance of treasury from Horizon
     async function getTreasuryBalance(): Promise<number> {
